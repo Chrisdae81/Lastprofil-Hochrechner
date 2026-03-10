@@ -15,6 +15,7 @@ def get_pv_production(
     tilt: float = 30,
     year: int | None = None,
     loss: float = 14.0,
+    verify_ssl: bool = True,
 ) -> pd.DataFrame:
     """
     Ruft stündliche PV-Erzeugungsdaten von der PVGIS API ab.
@@ -53,7 +54,10 @@ def get_pv_production(
     print(f"  PVGIS-Abfrage: {peak_power_kw} kWp, Standort ({lat}, {lon}), "
           f"Azimut {azimuth}°, Neigung {tilt}°")
 
-    response = requests.get(PVGIS_BASE_URL, params=params, timeout=60)
+    if not verify_ssl:
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    response = requests.get(PVGIS_BASE_URL, params=params, timeout=60, verify=verify_ssl)
     response.raise_for_status()
 
     # PVGIS CSV hat Header-Zeilen und Footer-Zeilen die übersprungen werden müssen

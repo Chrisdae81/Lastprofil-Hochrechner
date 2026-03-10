@@ -85,6 +85,12 @@ Beispiel:
         default=14.0,
         help="Systemverluste in Prozent. Default: 14",
     )
+    parser.add_argument(
+        "--no-ssl-verify",
+        action="store_true",
+        default=False,
+        help="SSL-Zertifikatsprüfung deaktivieren (für Firmennetzwerke mit Proxy)",
+    )
 
     return parser.parse_args()
 
@@ -116,6 +122,7 @@ def main() -> None:
         tilt=args.tilt,
         year=args.year,
         loss=args.loss,
+        verify_ssl=not args.no_ssl_verify,
     )
 
     # 3. Brutto-Verbrauch berechnen
