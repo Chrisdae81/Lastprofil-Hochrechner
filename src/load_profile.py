@@ -1,4 +1,4 @@
-"""Laden und Parsen von Kunden-Lastprofilen (CSV)."""
+"""Laden und Parsen von Kunden-Lastprofilen (CSV und Excel)."""
 
 import pandas as pd
 from pathlib import Path
@@ -10,9 +10,10 @@ TIMESTAMP_COLUMNS = [
     "datum/zeit", "date/time", "datetime", "datum_zeit",
 ]
 POWER_COLUMNS = [
-    "netzbezug", "bezug", "leistung", "power", "kw", "verbrauch",
+    "netzbezug", "bezug", "leistung", "power", "kw", "kwh", "verbrauch",
     "consumption", "grid", "netz", "wirkleistung", "p_bezug",
-    "bezug_kw", "leistung_kw", "netzbezug_kw",
+    "bezug_kw", "leistung_kw", "netzbezug_kw", "bezug_kwh", "verbrauch_kwh",
+    "energiemenge", "menge", "wert", "value",
 ]
 
 
@@ -44,22 +45,43 @@ def _parse_german_float(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce")
 
 
-def load_profile(filepath: str | Path) -> pd.DataFrame:
+def _read_file(filepath: Path) -> pd.DataFrame:
+    """Liest CSV- oder Excel-Dateien und gibt ein DataFrame zurück."""
+    suffix = filepath.suffix.lower()
+    if suffix in (".xlsx", ".xls"):
+        print(f"  Excel-Datei erkannt ({suffix})")
+        df = pd.read_excel(filepath)
+    else:
+        sep = _detect_separator(filepath)
+        df = pd.read_csv(filepath, sep=sep, encoding="utf-8-sig")
+    return df
+
+
+def load_profile(filepath: str | Path, unit: str = "kw") -> pd.DataFrame:
     """
-    Lädt ein Lastprofil aus einer CSV-Datei.
+    Lädt ein Lastprofil aus einer CSV- oder Excel-Datei.
 
     Gibt ein DataFrame mit DatetimeIndex und Spalte 'netzbezug_kw' zurück.
-    Unterstützt verschiedene CSV-Formate, Separatoren und Datumsformate.
+    Unterstützt CSV (verschiedene Separatoren, deutsches Format) und Excel (.xlsx/.xls).
+
+    Args:
+        filepath: Pfad zur Eingabedatei
+        unit: Einheit der Werte in der Datei ('kw' oder 'kwh').
+              Bei 'kwh' wird anhand des Intervalls in kW umgerechnet.
     """
     filepath = Path(filepath)
     if not filepath.exists():
         raise FileNotFoundError(f"Datei nicht gefunden: {filepath}")
 
-    sep = _detect_separator(filepath)
-    df = pd.read_csv(filepath, sep=sep, encoding="utf-8-sig")
+    df = _read_file(filepath)
 
     if df.empty:
-        raise ValueError("Die CSV-Datei ist leer.")
+        raise ValueError("Die Datei ist leer.")
+
+    # Verfügbare Spalten anzeigen
+    print(f"  Gefundene Spalten: {list(df.columns)}")
+    if len(df) > 0:
+        print(f"  Erste Zeile: {df.iloc[0].to_dict()}")
 
     # Zeitstempel-Spalte finden
     ts_col = _find_column(df, TIMESTAMP_COLUMNS)
@@ -76,11 +98,11 @@ def load_profile(filepath: str | Path) -> pd.DataFrame:
         non_ts_numeric = [c for c in numeric_cols if c != ts_col]
         if non_ts_numeric:
             power_col = non_ts_numeric[0]
-            print(f"  Hinweis: Verwende Spalte '{power_col}' als Leistungswerte.")
         else:
             # Versuche zweite Spalte als deutsche Zahl zu parsen
             power_col = [c for c in df.columns if c != ts_col][0]
-            print(f"  Hinweis: Verwende Spalte '{power_col}' als Leistungswerte.")
+    print(f"  Zeitstempel-Spalte: '{ts_col}'")
+    print(f"  Werte-Spalte: '{power_col}'")
 
     # Zeitstempel parsen
     df["zeitstempel"] = pd.to_datetime(df[ts_col], dayfirst=True, format="mixed")
@@ -98,11 +120,16 @@ def load_profile(filepath: str | Path) -> pd.DataFrame:
         print(f"  Warnung: {nan_count} ungültige Werte entfernt.")
         result = result.dropna()
 
-    # Intervall prüfen
+    # Intervall prüfen und ggf. kWh -> kW umrechnen
     if len(result) >= 2:
         intervals = result.index.to_series().diff().dropna()
         median_interval = intervals.median()
         print(f"  Erkanntes Intervall: {median_interval}")
+
+        if unit.lower() == "kwh":
+            hours_per_interval = median_interval.total_seconds() / 3600
+            result["netzbezug_kw"] = result["netzbezug_kw"] / hours_per_interval
+            print(f"  kWh -> kW umgerechnet (Faktor: /{hours_per_interval})")
 
     print(f"  Geladen: {len(result)} Datenpunkte von {result.index[0]} bis {result.index[-1]}")
     return result

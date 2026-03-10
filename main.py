@@ -86,6 +86,13 @@ Beispiel:
         help="Systemverluste in Prozent. Default: 14",
     )
     parser.add_argument(
+        "--unit",
+        choices=["kw", "kwh"],
+        default="kw",
+        help="Einheit der Werte in der Eingabedatei. Default: kw. "
+             "Bei 'kwh' wird automatisch in kW umgerechnet.",
+    )
+    parser.add_argument(
         "--no-ssl-verify",
         action="store_true",
         default=False,
@@ -110,7 +117,7 @@ def main() -> None:
 
     # 1. Lastprofil laden
     print("\n[1/4] Lastprofil laden...")
-    lp = load_profile(input_path)
+    lp = load_profile(input_path, unit=args.unit)
 
     # 2. PV-Erzeugung von PVGIS abrufen
     print("\n[2/4] PV-Erzeugung von PVGIS abrufen...")
