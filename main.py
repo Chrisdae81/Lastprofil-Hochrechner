@@ -87,9 +87,10 @@ Beispiel:
     )
     parser.add_argument(
         "--unit",
-        choices=["kw", "kwh"],
-        default="kw",
-        help="Einheit der Werte in der Eingabedatei. Default: kw. "
+        choices=["kw", "kwh", "auto"],
+        default="auto",
+        help="Einheit der Werte in der Eingabedatei. Default: auto "
+             "(erkennt kWh aus Dateiname/Spaltennamen). "
              "Bei 'kwh' wird automatisch in kW umgerechnet.",
     )
     parser.add_argument(

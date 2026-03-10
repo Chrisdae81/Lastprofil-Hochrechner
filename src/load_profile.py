@@ -45,6 +45,20 @@ def _parse_german_float(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce")
 
 
+def _detect_unit(filepath: Path, df: pd.DataFrame) -> str:
+    """Erkennt ob Werte in kW oder kWh vorliegen anhand Dateiname und Spaltennamen."""
+    # Dateiname prüfen
+    if "kwh" in filepath.stem.lower():
+        print(f"  Auto-Erkennung: 'kWh' im Dateinamen gefunden -> Einheit: kWh")
+        return "kwh"
+    # Spaltennamen prüfen
+    for col in df.columns:
+        if "kwh" in col.lower():
+            print(f"  Auto-Erkennung: 'kWh' in Spalte '{col}' gefunden -> Einheit: kWh")
+            return "kwh"
+    return "kw"
+
+
 def _read_file(filepath: Path) -> pd.DataFrame:
     """Liest CSV- oder Excel-Dateien und gibt ein DataFrame zurück."""
     suffix = filepath.suffix.lower()
@@ -57,7 +71,7 @@ def _read_file(filepath: Path) -> pd.DataFrame:
     return df
 
 
-def load_profile(filepath: str | Path, unit: str = "kw") -> pd.DataFrame:
+def load_profile(filepath: str | Path, unit: str = "auto") -> pd.DataFrame:
     """
     Lädt ein Lastprofil aus einer CSV- oder Excel-Datei.
 
@@ -66,7 +80,8 @@ def load_profile(filepath: str | Path, unit: str = "kw") -> pd.DataFrame:
 
     Args:
         filepath: Pfad zur Eingabedatei
-        unit: Einheit der Werte in der Datei ('kw' oder 'kwh').
+        unit: Einheit der Werte ('kw', 'kwh' oder 'auto').
+              'auto' erkennt kWh aus Dateiname/Spaltennamen.
               Bei 'kwh' wird anhand des Intervalls in kW umgerechnet.
     """
     filepath = Path(filepath)
@@ -77,6 +92,11 @@ def load_profile(filepath: str | Path, unit: str = "kw") -> pd.DataFrame:
 
     if df.empty:
         raise ValueError("Die Datei ist leer.")
+
+    # Auto-Erkennung der Einheit
+    if unit == "auto":
+        unit = _detect_unit(filepath, df)
+    print(f"  Einheit der Eingabewerte: {unit.upper()}")
 
     # Verfügbare Spalten anzeigen
     print(f"  Gefundene Spalten: {list(df.columns)}")
