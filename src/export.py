@@ -17,8 +17,14 @@ def export_results(df: pd.DataFrame, output_path: str | Path) -> Path:
     """
     output_path = Path(output_path)
 
+    # Intervall bestimmen für kW -> kWh Umrechnung
+    intervals = df.index.to_series().diff().dropna()
+    hours_per_interval = intervals.median().total_seconds() / 3600
+
     export_df = df[["netzbezug_kw", "pv_erzeugung_kw", "brutto_verbrauch_kw"]].copy()
-    export_df.columns = ["Netzbezug_kW", "PV_Erzeugung_kW", "Brutto_Verbrauch_kW"]
+    # kW -> kWh pro Intervall umrechnen, damit Excel-SUM direkt kWh ergibt
+    export_df = export_df * hours_per_interval
+    export_df.columns = ["Netzbezug_kWh", "PV_Erzeugung_kWh", "Brutto_Verbrauch_kWh"]
     export_df.index.name = "Zeitstempel"
 
     # Werte auf 3 Dezimalstellen runden
